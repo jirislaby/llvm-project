@@ -218,9 +218,9 @@ void USRGenerator::VisitFieldDecl(const FieldDecl *D) {
     VisitDeclContext(D->getDeclContext());
   Out << (isa<ObjCIvarDecl>(D) ? "@" : "@FI@");
   if (EmitDeclName(D)) {
-    // Bit fields can be anonymous.
-    IgnoreResults = true;
-    return;
+    // Bit fields can be anonymous. As well as embedded anon structs.
+    // Just use a field index instead of the missing name.
+    Out << "%" << D->getFieldIndex();
   }
 }
 
@@ -584,7 +584,16 @@ void USRGenerator::VisitTagDecl(const TagDecl *D) {
         printLoc(Out, D->getLocation(), Context->getSourceManager(), true);
       } else {
         Buf[off] = 'a';
-        if (auto *ED = dyn_cast<EnumDecl>(D)) {
+        if (auto *RD = dyn_cast<RecordDecl>(D->getParent())) {
+          unsigned int idx = 0;
+          for (auto d : RD->decls()) {
+            if (d == D) {
+	      Out << idx;
+	      break;
+            }
+	    idx++;
+	  }
+        } else if (auto *ED = dyn_cast<EnumDecl>(D)) {
           // Distinguish USRs of anonymous enums by using their first
           // enumerator.
           auto enum_range = ED->enumerators();
